@@ -1,0 +1,21 @@
+name: ci
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run check:no-private-dep
+      - run: npm run build
+      - name: bin entry must start with a shebang
+        run: head -c 21 dist/cli.js | grep -q '^#!/usr/bin/env node' || { echo '::error::dist/cli.js has no shebang'; exit 1; }
+      - name: committed JSON Schemas match the zod source
+        run: npm run gen:schema && git diff --exit-code -- '*.schema.json'
+      - run: npm test

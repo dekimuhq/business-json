@@ -1,0 +1,66 @@
+{
+  "name": "@dekimuhq/business-json",
+  "version": "0.1.0",
+  "description": "business.json — a verifiable business identity at /.well-known/business.json, bound to a qualified-certificate signature and a DNS record. Parse, validate, and check bindings.",
+  "license": "Apache-2.0",
+  "author": "Dekimu",
+  "homepage": "https://dekimu.com/open-source",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dekimuhq/business-json.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dekimuhq/business-json/issues"
+  },
+  "keywords": [
+    "business-json",
+    "well-known",
+    "impersonation",
+    "eidas",
+    "vat",
+    "vies",
+    "dekimu"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "business-json": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "SPEC.md",
+    "LICENSE-SPEC",
+    "business.schema.json",
+    "binding-record.schema.json",
+    "business-verifier.schema.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "gen:schema": "node scripts/gen-schema.mjs",
+    "check:no-private-dep": "node -e \"const p=require('./package.json');const all={...p.dependencies,...p.peerDependencies};if(Object.keys(all||{}).some(d=>d.startsWith('@dekimuhq/'))){console.error('FAIL: @dekimuhq dep present');process.exit(1)}console.log('ok: no @dekimuhq deps')\"",
+    "prepublishOnly": "npm run check:no-private-dep && npm run build && npm run gen:schema && npm test"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.11"
+  }
+}

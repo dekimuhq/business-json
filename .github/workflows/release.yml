@@ -1,0 +1,61 @@
+name: release · publish to public npm on a version tag
+
+# Publishes THIS package to registry.npmjs.org when a `v*` tag is pushed whose
+# version matches package.json. NO credential: npm Trusted Publishing (OIDC) —
+# the job's id-token is exchanged for a one-shot publish token, accepted only
+# because the package's npmjs.com settings name this repo + `release.yml` as its
+# trusted publisher. Provenance (Sigstore) is attached automatically.
+# Doc: https://docs.npmjs.com/trusted-publishers (npm CLI >= 11.5.1, Node >= 22.14).
+#
+# Until the trusted publisher is configured on npmjs.com, the publish step fails
+# closed (ENEEDAUTH / 404) — no fallback token exists to leak.
+#
+# prepublishOnly (package.json) re-runs the private-dep check, build and tests on
+# the exact tree being published — an npm publish is not revertible, so it is
+# verified on this side of the line, not by a CI run that happens to be parallel.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # OIDC → npm trusted-publishing token + provenance — nothing else
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          # 24.21.0 bundles npm 11.19.0 — trusted publishing needs >= 11.5.1.
+          node-version: 24.21.0
+          registry-url: "https://registry.npmjs.org"
+
+      - name: npm supports trusted publishing?
+        run: |
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$(npm --version)" \
+            || { echo "::error::npm $(npm --version) < 11.5.1 cannot use trusted publishing"; exit 1; }
+
+      - name: Tag must match package.json version
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          [ "v$PKG" = "$REF_NAME" ] || { echo "::error::tag $REF_NAME != package.json v$PKG"; exit 1; }
+
+      - run: npm ci
+
+      # prepublishOnly runs check:no-private-dep → build → test before anything is sent.
+      - name: Publish (public, OIDC, provenance)
+        run: npm publish --access public

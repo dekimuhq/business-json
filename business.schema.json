@@ -1,0 +1,128 @@
+{
+  "$ref": "#/definitions/BusinessJson",
+  "definitions": {
+    "BusinessJson": {
+      "type": "object",
+      "properties": {
+        "businessJsonVersion": {
+          "type": "string",
+          "const": "0.1"
+        },
+        "legalName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "tradingName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "vat": {
+          "type": "string",
+          "pattern": "^(AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|XI)[0-9A-Z+*]{2,12}$"
+        },
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "postalCode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "locality": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "region": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "country": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          "required": [
+            "street",
+            "locality",
+            "country"
+          ],
+          "additionalProperties": false
+        },
+        "domains": {
+          "minItems": 1,
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 253,
+            "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+          }
+        },
+        "contact": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email",
+              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+            },
+            "phone": {
+              "type": "string",
+              "pattern": "^\\+[1-9][0-9]{6,14}$"
+            },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "required": [
+            "email"
+          ],
+          "additionalProperties": false
+        },
+        "policies": {
+          "type": "object",
+          "properties": {
+            "privacy": {
+              "type": "string",
+              "format": "uri"
+            },
+            "terms": {
+              "type": "string",
+              "format": "uri"
+            },
+            "legalNotice": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "additionalProperties": false
+        },
+        "binding": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "businessJsonVersion",
+        "legalName",
+        "vat",
+        "address",
+        "domains",
+        "contact",
+        "binding"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
