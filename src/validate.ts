@@ -1,7 +1,7 @@
 import { resolveCname as dnsResolveCname, resolveTxt as dnsResolveTxt } from "node:dns/promises";
 import { isIP } from "node:net";
 import { domainToASCII } from "node:url";
-import { parseDnsRecord, profileDigest, signingInput, verifyEd25519 } from "./canonical.js";
+import { findDuplicateKey, parseDnsRecord, profileDigest, signingInput, verifyEd25519 } from "./canonical.js";
 import { organizationIdentifierMatches } from "./identity.js";
 import { parseBindingRecord, parseBusinessJson, parseVerifierMetadata } from "./parse.js";
 import { domainSchema, type BindingRecord, type BusinessJson, type VerifierKey } from "./schema.js";
@@ -105,7 +105,11 @@ async function fetchJson(url: string, fetchImpl: typeof fetch): Promise<Fetched>
   }
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks));
-    return { ok: true, value: JSON.parse(text) };
+    const value: unknown = JSON.parse(text);
+    // I-JSON (RFC 7493 §2.3): JSON.parse keeps the LAST duplicate, another parser may keep the first.
+    const dup = findDuplicateKey(text);
+    if (dup !== null) return { ok: false, error: `${url}: duplicate member name ${show(dup)}` };
+    return { ok: true, value };
   } catch {
     return { ok: false, error: `${url}: not UTF-8 JSON` };
   }
@@ -231,7 +235,13 @@ export async function checkBinding(
   const now = (opts.now ?? new Date()).getTime();
   if (now >= Date.parse(record.expiresAt)) reasons.push(`binding expired at ${record.expiresAt}`);
   if (now + CLOCK_SKEW_MS < Date.parse(record.issuedAt)) reasons.push("binding issuedAt is in the future");
-  if (record.profileDigest !== profileDigest(rawDoc)) reasons.push("document changed since the verifier bound it (profileDigest mismatch)");
+  let digest: string | null = null;
+  try {
+    digest = profileDigest(rawDoc);
+  } catch (e) {
+    reasons.push(`document cannot be canonicalised (${show((e as Error).message)})`);
+  }
+  if (digest !== null && record.profileDigest !== digest) reasons.push("document changed since the verifier bound it (profileDigest mismatch)");
 
   return { reasons, record };
 }

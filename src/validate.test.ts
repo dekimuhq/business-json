@@ -134,11 +134,19 @@ describe("validateDomain — impersonation attempts", () => {
   });
 
   // Code review + security M2: a retired key backdates issuedAt and picks a far expiry.
-  it("refuses a backdated record with a long lifetime from a retired key", async () => {
+  it("caps a backdated record's lifetime at 30 days", async () => {
     const verifier = makeVerifier("https://verify.test");
     const opts = setup({ verifier, record: signedWith(verifier, { issuedAt: "2026-11-01T00:00:00Z", expiresAt: "2027-11-01T00:00:00Z" }) });
-    const retired = { ...opts, trusted: [{ origin: "https://verify.test", keys: [{ ...verifier.key, notAfter: "2026-11-02T00:00:00Z" }] }] };
-    expect(await reasons(retired)).toMatch(/at most 30 days/);
+    expect(await reasons(opts)).toMatch(/at most 30 days/);
+  });
+
+  it("a record from a retired key is dead 30 days after the key's notAfter", async () => {
+    const verifier = makeVerifier("https://verify.test");
+    // Backdated inside the key window, maximum lifetime: valid until 2026-12-01T10:02Z at the latest.
+    const opts = setup({ verifier });
+    const retired = { ...opts, trusted: [{ origin: "https://verify.test", keys: [{ ...verifier.key, notAfter: "2026-11-01T12:00:00Z" }] }] };
+    expect((await validateDomain(DOMAIN, retired)).status).toBe("bound"); // issuedAt inside the window
+    expect(await reasons({ ...retired, now: new Date("2026-12-01T10:02:00Z") })).toMatch(/expired/);
   });
 
   it("refuses an unknown kid", async () => {
@@ -292,6 +300,29 @@ describe("validateDomain — resource limits and input", () => {
 
   it("refuses a non-JSON content type", async () => {
     expect(await reasons(setup({ extra: { [DOC_URL]: { status: 200, body: JSON.stringify(makeDoc()), headers: { "content-type": "text/html" } } } }))).toMatch(/not application\/json/);
+  });
+
+  it("refuses a document with a duplicate member name", async () => {
+    const body = JSON.stringify(makeDoc()).replace('"legalName"', '"legalName":"Amazon EU","legalName"');
+    expect(await reasons(setup({ extra: { [DOC_URL]: { status: 200, body } } }))).toMatch(/duplicate member name "legalName"/);
+  });
+
+  it("does not flag the same key in sibling objects or inside strings", async () => {
+    const doc = makeDoc({ contact: { email: "a\"b:\"@acme.example" }, policies: { privacy: "https://acme.example/p" } });
+    expect(await reasons(setup({ doc }))).not.toMatch(/duplicate/);
+  });
+
+  it("returns not-bound (never throws) for a lone surrogate in the document", async () => {
+    const body = JSON.stringify(makeDoc()).replace('"Calle Mayor 1"', '"Calle \\ud800"');
+    expect(await reasons(setup({ extra: { [DOC_URL]: { status: 200, body } } }))).toMatch(/lone surrogate/);
+  });
+
+  it.each([
+    ["record", () => makeDoc().binding],
+    ["metadata", () => META_URL],
+  ])("applies the content-type and size rules to the %s fetch", async (_l, url) => {
+    expect(await reasons(setup({ extra: { [url()]: { status: 200, body: "{}", headers: { "content-type": "text/html" } } } }))).toMatch(/not application\/json/);
+    expect(await reasons(setup({ extra: { [url()]: { status: 200, body: " ".repeat(70 * 1024) } } }))).toMatch(/larger than/);
   });
 
   it("reports a malformed document as not-bound", async () => {

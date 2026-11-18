@@ -11,6 +11,8 @@ const targets = [
 
 for (const [file, name, schema] of targets) {
   const { $schema, ...body } = z.toJSONSchema(schema, { target: "draft-7", io: "input" });
+  // The zod refine "domains must not repeat" has no JSON Schema form of its own; uniqueItems is it.
+  if (body.properties?.domains?.type === "array" && name === "BusinessJson") body.properties.domains.uniqueItems = true;
   const out = { $ref: `#/definitions/${name}`, definitions: { [name]: body }, $schema };
   writeFileSync(new URL(`../${file}`, import.meta.url), JSON.stringify(out, null, 2) + "\n");
   console.log(`wrote ${file}`);

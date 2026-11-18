@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasLoneSurrogate } from "./canonical.js";
 
 /**
  * VIES member-state prefixes (EL = Greece, XI = Northern Ireland). The number
@@ -18,7 +19,8 @@ const text = (max: number) =>
     .string()
     .min(1)
     .max(max)
-    .regex(/^[^\p{Cc}\u202a-\u202e\u2066-\u2069]+$/u, "must not contain control or bidi-override characters");
+    .regex(/^[^\p{Cc}\u202a-\u202e\u2066-\u2069]+$/u, "must not contain control or bidi-override characters")
+    .refine((s) => !hasLoneSurrogate(s), "must be well-formed Unicode (no lone surrogates)");
 
 /** base64url of exactly `bytes` bytes, in its one canonical spelling (no spare-bit variants). */
 const b64url = (bytes: number) =>

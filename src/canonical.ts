@@ -1,7 +1,7 @@
 import { createHash, createPublicKey, verify as edVerify } from "node:crypto";
 
 /** True when a string holds an unpaired UTF-16 surrogate (not valid Unicode; RFC 8785 §3.2.2.2 forbids it). */
-function hasLoneSurrogate(s: string): boolean {
+export function hasLoneSurrogate(s: string): boolean {
   return /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s);
 }
 
@@ -30,6 +30,34 @@ export function canonicalize(value: unknown): string {
     return `{${entries.map(([k, v]) => `${canonicalize(k)}:${canonicalize(v)}`).join(",")}}`;
   }
   throw new TypeError(`JCS: unsupported value ${Object.prototype.toString.call(value)}`);
+}
+
+/**
+ * First member name that appears twice in one object of an already-valid JSON
+ * text, or null. JSON.parse silently keeps the last duplicate; I-JSON forbids them.
+ */
+export function findDuplicateKey(json: string): string | null {
+  const stack: Array<Set<string> | null> = []; // Set = object, null = array
+  for (let i = 0; i < json.length; i++) {
+    const c = json[i];
+    if (c === "{") stack.push(new Set());
+    else if (c === "[") stack.push(null);
+    else if (c === "}" || c === "]") stack.pop();
+    else if (c === '"') {
+      let j = i + 1;
+      while (json[j] !== '"') j += json[j] === "\\" ? 2 : 1;
+      let k = j + 1;
+      while (k < json.length && /\s/.test(json[k])) k++;
+      const top = stack.at(-1);
+      if (json[k] === ":" && top) {
+        const key = JSON.parse(json.slice(i, j + 1)) as string;
+        if (top.has(key)) return key;
+        top.add(key);
+      }
+      i = j;
+    }
+  }
+  return null;
 }
 
 /** `sha256:<hex>` of the JCS form — the `profileDigest` a binding record carries. Hash the document as served, not a parsed copy. */

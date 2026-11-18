@@ -47,7 +47,7 @@ A business publishes `https://<domain>/.well-known/business.json` for each domai
 **Text fields** (names, address parts) MUST NOT contain control characters (Unicode category Cc) or bidirectional override characters (U+202A–U+202E, U+2066–U+2069). **URLs** MUST start with `https://`, use printable ASCII only, and contain no whitespace, so the parsed value is byte-for-byte what was served.
 
 **Rules the JSON Schemas cannot express.** Validators MUST also enforce these:
-- `domains` has no repeats.
+- No duplicate member names, and no lone surrogates.
 - Every base64url value is canonical (§4).
 - The binding record's time relations (§4).
 

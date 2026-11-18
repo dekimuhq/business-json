@@ -53,8 +53,25 @@ describe("cli", () => {
   });
 
   it("binds nothing through the default verifier until a key is pinned", async () => {
-    // Fail-closed by design: DEFAULT_VERIFIERS pins keys, and none exist yet.
+    // Fail-closed by design: DEFAULT_VERIFIERS pins keys, and none exist yet. A document
+    // pointing at verify.dekimu.com must not bind through the CLI default.
     expect(DEFAULT_VERIFIERS[0].keys).toEqual([]);
+    const doc = makeDoc({ binding: "https://verify.dekimu.com/b/ESB12345678/binding.json" });
+    const v = makeVerifier("https://verify.dekimu.com");
+    const record = v.sign(makeRecord(doc, { verifier: "https://verify.dekimu.com" }));
+    const d = {
+      ...deps(doc),
+      fetchImpl: mockFetch({
+        [`https://${DOMAIN}/.well-known/business.json`]: { status: 200, body: JSON.stringify(doc) },
+        [doc.binding]: { status: 200, body: JSON.stringify(record) },
+        "https://verify.dekimu.com/.well-known/business-verifier.json": {
+          status: 200,
+          body: JSON.stringify({ businessVerifierVersion: "0.1", verifier: "https://verify.dekimu.com", keys: [v.key] }),
+        },
+      }),
+    };
+    expect(await runCli(["validate", DOMAIN], d)).toBe(1);
+    expect(printed(err)).toMatch(/unknown signing key/);
   });
 
   it("exits 3 when the domain has no business.json", async () => {

@@ -9,7 +9,8 @@ name: release · publish to public npm
 # Auth: a repo created after 2026-07-15 gets GitHub's immutable OIDC subject,
 # which npm's token exchange rejects (npm/cli#9969), so trusted publishing
 # cannot work yet. The publish uses a short-lived granular token in
-# NPM_BOOTSTRAP_TOKEN on the `release` environment, deleted after each run
+# NPM_BOOTSTRAP_TOKEN on the `release` environment — scoped to this package,
+# 1-day expiry, deleted after each run
 # (knowledge/public-lib-embargoed-release.md § npmjs auth). id-token stays for
 # provenance.
 #
@@ -51,8 +52,8 @@ jobs:
       - run: npm run build
       - run: npm run check:pinned-default
       - run: npm run gen:schema && git diff --exit-code -- '*.schema.json'
-      - run: npm run typecheck:tests
-      - run: npm test
+      # Pack and upload BEFORE any test code runs, so nothing executed by the
+      # test suite can alter the bytes that get published.
       - run: npm pack --ignore-scripts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -60,6 +61,8 @@ jobs:
           path: "*.tgz"
           if-no-files-found: error
           retention-days: 3
+      - run: npm run typecheck:tests
+      - run: npm test
 
   publish:
     needs: build
