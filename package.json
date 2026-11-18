@@ -53,7 +53,9 @@
     "test": "vitest run",
     "gen:schema": "node scripts/gen-schema.mjs",
     "check:no-private-dep": "node -e \"const p=require('./package.json');const all={...p.dependencies,...p.peerDependencies};if(Object.keys(all||{}).some(d=>d.startsWith('@dekimuhq/'))){console.error('FAIL: @dekimuhq dep present');process.exit(1)}console.log('ok: no @dekimuhq deps')\"",
-    "prepublishOnly": "npm run check:no-private-dep && npm run build && npm run gen:schema && npm test"
+    "prepublishOnly": "npm run check:no-private-dep && npm run build && npm run check:pinned-default && npm run gen:schema && npm run typecheck:tests && npm test",
+    "typecheck:tests": "tsc -p tsconfig.test.json",
+    "check:pinned-default": "node --input-type=module -e \"import('./dist/cli.js').then(m=>{if(!m.DEFAULT_VERIFIER_KEYS.length){console.error('FAIL: DEFAULT_VERIFIER_KEYS is empty — pin verify.dekimu.com\\'s business-json key before publishing (SPEC §5 rule 1)');process.exit(1)}console.log('ok: default verifier key pinned')})\""
   },
   "dependencies": {
     "zod": "^4.6.7"

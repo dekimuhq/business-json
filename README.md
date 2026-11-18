@@ -16,7 +16,7 @@ Normative format: [SPEC.md](./SPEC.md) (CC0). JSON Schemas: [`business.schema.js
 ```sh
 npx @dekimuhq/business-json validate acme.example
 npx @dekimuhq/business-json validate acme.example --verifier https://verify.example
-npx @dekimuhq/business-json validate ./business.json   # schema only
+npx @dekimuhq/business-json check-file ./business.json   # shape only
 ```
 
 Exit codes:
@@ -25,8 +25,9 @@ Exit codes:
 - `1` not bound or invalid
 - `2` usage
 - `3` no business.json (unknown)
+- `4` `check-file` passed the schema, which says nothing about binding
 
-You choose which verifiers you trust. The default is `https://verify.dekimu.com`.
+You choose which verifiers you trust. The default is `https://verify.dekimu.com` with pinned keys. Until that verifier mints its key, the default binds nothing.
 
 ## Library
 
@@ -34,7 +35,10 @@ You choose which verifiers you trust. The default is `https://verify.dekimu.com`
 import { validateDomain, parseBusinessJson, profileDigest, dnsRecordValue } from "@dekimuhq/business-json";
 
 const r = await validateDomain("acme.example", { trusted: [{ origin: "https://verify.dekimu.com" }] });
-if (r.status === "bound") console.log(r.doc.legalName, r.record.authority.organizationIdentifier);
+if (r.status === "bound") {
+  // Show attested values only: the certificate's name and the VAT — never r.doc.legalName / tradingName.
+  console.log(r.record.vat, r.record.authority.organizationName, r.record.verifier);
+}
 ```
 
 Pass `fetchImpl`, `resolveTxt`, `resolveCname` and `now` to test without a network. Pin verifier keys with `trusted: [{ origin, keys: [...] }]`.
@@ -43,7 +47,7 @@ Node ≥ 20. Runtime dependency: `zod` 4.
 
 ## What a result means
 
-A **bound** result means: the holder of VAT number X controls this domain, according to verifier V. It does not mean the business is honest, solvent or safe to pay. Don't present it as "safe", "scam-proof" or "guaranteed".
+A **bound** result means: the holder of VAT number X, whose qualified certificate names it Y, controls this domain, according to verifier V. It does not mean the business is honest, solvent or safe to pay. Don't present it as "safe", "scam-proof" or "guaranteed".
 
 ## License
 

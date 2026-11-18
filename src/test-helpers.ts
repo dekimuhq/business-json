@@ -6,17 +6,20 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { profileDigest, signingInput } from "./canonical.js";
 import type { BusinessJson, VerifierKey } from "./schema.js";
 
-export function mockFetch(map: Record<string, { status: number; body: string }>): typeof fetch {
-  return (async (input: string | URL) => {
+export interface MockHit {
+  status: number;
+  body: string | ReadableStream<Uint8Array>;
+  headers?: Record<string, string>;
+}
+
+/** fetch stand-in returning real Response objects, so streaming and headers behave as in production. */
+export function mockFetch(map: Record<string, MockHit>, seen: Array<{ url: string; init?: RequestInit }> = []): typeof fetch {
+  return (async (input: string | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.href;
+    seen.push({ url, ...(init ? { init } : {}) });
     const hit = map[url];
-    if (!hit) return { ok: false, status: 404, text: async () => "" } as Response;
-    return {
-      ok: hit.status >= 200 && hit.status < 300,
-      status: hit.status,
-      text: async () => hit.body,
-      json: async () => JSON.parse(hit.body),
-    } as Response;
+    if (!hit) return new Response("not found", { status: 404, headers: { "content-type": "text/plain" } });
+    return new Response(hit.body, { status: hit.status, headers: { "content-type": "application/json", ...hit.headers } });
   }) as typeof fetch;
 }
 
@@ -67,6 +70,7 @@ export function makeRecord(doc: BusinessJson, overrides: Record<string, unknown>
     authority: {
       method: "qseal",
       organizationIdentifier: `VAT${doc.vat.slice(0, 2)}-${doc.vat.slice(2)}`,
+      organizationName: "ACME EJEMPLO SL",
       certificatePolicies: ["0.4.0.194112.1.3"],
       certificateSha256: "a".repeat(64),
       certificateNotAfter: "2028-01-01T00:00:00Z",
@@ -76,7 +80,7 @@ export function makeRecord(doc: BusinessJson, overrides: Record<string, unknown>
     domains: doc.domains.map((domain) => ({ domain, dnsCheckedAt: "2026-11-01T10:01:00Z" })),
     profileDigest: profileDigest(doc),
     issuedAt: "2026-11-01T10:02:00Z",
-    expiresAt: "2027-02-01T10:02:00Z",
+    expiresAt: "2026-12-01T10:02:00Z",
     ...overrides,
   };
 }

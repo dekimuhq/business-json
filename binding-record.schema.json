@@ -10,7 +10,8 @@
         },
         "verifier": {
           "type": "string",
-          "format": "uri"
+          "maxLength": 2048,
+          "pattern": "^https:\\/\\/[\\x21-\\x7e]+$"
         },
         "vat": {
           "type": "string",
@@ -32,8 +33,15 @@
             },
             "organizationIdentifier": {
               "type": "string",
-              "minLength": 3,
-              "maxLength": 100
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
+            },
+            "organizationName": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             },
             "certificatePolicies": {
               "minItems": 1,
@@ -64,12 +72,15 @@
             },
             "trustedListSequence": {
               "type": "string",
-              "maxLength": 100
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             }
           },
           "required": [
             "method",
             "organizationIdentifier",
+            "organizationName",
             "certificatePolicies",
             "certificateSha256",
             "certificateNotAfter",
@@ -87,11 +98,15 @@
             },
             "name": {
               "type": "string",
-              "maxLength": 500
+              "minLength": 1,
+              "maxLength": 500,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             },
             "address": {
               "type": "string",
-              "maxLength": 1000
+              "minLength": 1,
+              "maxLength": 1000,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             },
             "checkedAt": {
               "type": "string",
@@ -100,7 +115,9 @@
             },
             "requestIdentifier": {
               "type": "string",
-              "maxLength": 200
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             }
           },
           "required": [
@@ -122,6 +139,11 @@
                 "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$"
               },
               "dnsCheckedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "registeredAt": {
                 "type": "string",
                 "format": "date-time",
                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -158,11 +180,12 @@
             "kid": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 200
+              "maxLength": 200,
+              "pattern": "^[A-Za-z0-9._:-]+$"
             },
             "value": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{86}$"
+              "pattern": "^[A-Za-z0-9_-]+$"
             }
           },
           "required": [

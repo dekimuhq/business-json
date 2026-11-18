@@ -3,6 +3,7 @@ export { parseBusinessJson, parseBindingRecord, parseVerifierMetadata, type Pars
 export { canonicalize, profileDigest, signingInput, verifyEd25519, dnsRecordValue, parseDnsRecord } from "./canonical.js";
 export { organizationIdentifiersFor, organizationIdentifierMatches } from "./identity.js";
 export {
-  validateDomain, checkBinding, MAX_DOCUMENT_BYTES,
+  validateDomain, checkBinding, normaliseDomain, legalNameKey, show,
+  MAX_DOCUMENT_BYTES, FETCH_TIMEOUT_MS, CLOCK_SKEW_MS,
   type TrustedVerifier, type ValidateOptions, type ValidateResult,
 } from "./validate.js";

@@ -1,61 +1,88 @@
-name: release · publish to public npm on a version tag
+name: release · publish to public npm
 
-# Publishes THIS package to registry.npmjs.org when a `v*` tag is pushed whose
-# version matches package.json. NO credential: npm Trusted Publishing (OIDC) —
-# the job's id-token is exchanged for a one-shot publish token, accepted only
-# because the package's npmjs.com settings name this repo + `release.yml` as its
-# trusted publisher. Provenance (Sigstore) is attached automatically.
-# Doc: https://docs.npmjs.com/trusted-publishers (npm CLI >= 11.5.1, Node >= 22.14).
+# Dispatch-only, from main only. Two jobs so that no code from a dev dependency
+# ever runs with the right to mint a publish token:
+#   build   — ci gate, every pre-publish check, `npm pack` → artifact. No id-token.
+#   publish — `release` environment (required reviewer), downloads the tarball and
+#             publishes exactly those bytes. No install, no build, no tests here.
 #
-# Until the trusted publisher is configured on npmjs.com, the publish step fails
-# closed (ENEEDAUTH / 404) — no fallback token exists to leak.
+# Auth: a repo created after 2026-07-15 gets GitHub's immutable OIDC subject,
+# which npm's token exchange rejects (npm/cli#9969), so trusted publishing
+# cannot work yet. The publish uses a short-lived granular token in
+# NPM_BOOTSTRAP_TOKEN on the `release` environment, deleted after each run
+# (knowledge/public-lib-embargoed-release.md § npmjs auth). id-token stays for
+# provenance.
 #
-# prepublishOnly (package.json) re-runs the private-dep check, build and tests on
-# the exact tree being published — an npm publish is not revertible, so it is
-# verified on this side of the line, not by a CI run that happens to be parallel.
+# check:pinned-default fails while DEFAULT_VERIFIER_KEYS is empty: the CLI must
+# not ship a default verifier whose keys come from whatever its web host serves.
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write   # OIDC → npm trusted-publishing token + provenance — nothing else
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
-  publish:
+  ci:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: ci
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+          fetch-depth: 0
+      - name: Commit is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          # 24.21.0 bundles npm 11.19.0 — trusted publishing needs >= 11.5.1.
-          node-version: 24.21.0
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: npm run check:no-private-dep
+      - run: npm run build
+      - run: npm run check:pinned-default
+      - run: npm run gen:schema && git diff --exit-code -- '*.schema.json'
+      - run: npm run typecheck:tests
+      - run: npm test
+      - run: npm pack --ignore-scripts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tarball
+          path: "*.tgz"
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+      id-token: write   # provenance only — nothing else in this job runs package code
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
           registry-url: "https://registry.npmjs.org"
-
-      - name: npm supports trusted publishing?
-        run: |
-          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$(npm --version)" \
-            || { echo "::error::npm $(npm --version) < 11.5.1 cannot use trusted publishing"; exit 1; }
-
-      - name: Tag must match package.json version
-        if: startsWith(github.ref, 'refs/tags/')
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: tarball
+      - name: Publish the built tarball (public, provenance)
         env:
-          REF_NAME: ${{ github.ref_name }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
         run: |
-          PKG=$(node -p "require('./package.json').version")
-          [ "v$PKG" = "$REF_NAME" ] || { echo "::error::tag $REF_NAME != package.json v$PKG"; exit 1; }
-
-      - run: npm ci
-
-      # prepublishOnly runs check:no-private-dep → build → test before anything is sent.
-      - name: Publish (public, OIDC, provenance)
-        run: npm publish --access public
+          [ -n "$NODE_AUTH_TOKEN" ] || { echo "::error::NPM_BOOTSTRAP_TOKEN is not set on the release environment"; exit 1; }
+          set -- *.tgz
+          [ "$#" -eq 1 ] || { echo "::error::expected exactly one tarball, got $#"; exit 1; }
+          npm publish "$1" --access public --provenance --ignore-scripts

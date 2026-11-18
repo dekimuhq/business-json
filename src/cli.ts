@@ -1,57 +1,87 @@
 #!/usr/bin/env node
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { parseBusinessJson } from "./parse.js";
-import { validateDomain, type TrustedVerifier, type ValidateOptions } from "./validate.js";
+import type { VerifierKey } from "./schema.js";
+import { MAX_DOCUMENT_BYTES, show, validateDomain, type TrustedVerifier, type ValidateOptions } from "./validate.js";
 
-/** Trusted when no `--verifier` is given. Relying parties choose their own list (SPEC §Trust). */
-export const DEFAULT_VERIFIERS: readonly string[] = ["https://verify.dekimu.com"];
+/**
+ * Verifier keys the CLI pins when no `--verifier` is given (SPEC §5, rule 1).
+ * Pinned, not fetched: trusting whatever key a web host serves would make a
+ * hosting compromise a forgery of every binding. EMPTY until verify.dekimu.com
+ * mints its business-json key — until then the default binds nothing (fail
+ * closed), and `npm run check:pinned-default` blocks a publish.
+ */
+export const DEFAULT_VERIFIER_KEYS: readonly VerifierKey[] = [];
+export const DEFAULT_VERIFIERS: readonly TrustedVerifier[] = [
+  { origin: "https://verify.dekimu.com", keys: [...DEFAULT_VERIFIER_KEYS] },
+];
 
-const USAGE = "usage: business-json validate <domain|file.json> [--verifier https://origin ...]";
+const USAGE = [
+  "usage: business-json validate <domain> [--verifier https://origin ...]",
+  "       business-json check-file <business.json>",
+].join("\n");
 
-export type ExitCode = 0 | 1 | 2 | 3;
+export type ExitCode = 0 | 1 | 2 | 3 | 4;
 
-/** Exit codes: 0 bound · 1 not bound / invalid · 2 usage · 3 no business.json (unknown). */
+/** Strip control characters from anything printed (values in reasons are already quoted by show()). */
+function clean(s: string): string {
+  return s.replace(/[\p{Cc}\u202a-\u202e\u2066-\u2069]/gu, "?");
+}
+
+/**
+ * Exit codes: 0 bound · 1 not bound / invalid · 2 usage · 3 no business.json (unknown)
+ * · 4 file passes the schema (says nothing about binding).
+ */
 export async function runCli(argv: readonly string[], deps: Omit<ValidateOptions, "trusted"> = {}): Promise<ExitCode> {
   const [cmd, target, ...rest] = argv;
+  if (cmd === "check-file" && target && rest.length === 0) return checkFile(target);
   if (cmd !== "validate" || !target) {
     console.error(USAGE);
     return 2;
   }
-  const origins: string[] = [];
+  const trusted: TrustedVerifier[] = [];
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] !== "--verifier" || !rest[i + 1]) { console.error(USAGE); return 2; }
-    let u: URL;
-    try { u = new URL(rest[++i]); } catch { console.error(`not a URL: ${rest[i]}`); return 2; }
-    if (u.protocol !== "https:") { console.error(`verifier must be https: ${rest[i]}`); return 2; }
-    origins.push(u.origin);
-  }
-  const trusted: TrustedVerifier[] = (origins.length ? origins : DEFAULT_VERIFIERS).map((origin) => ({ origin }));
-
-  if (target.endsWith(".json")) {
-    try {
-      const r = parseBusinessJson(JSON.parse(await readFile(target, "utf8")));
-      if (!r.ok) { console.error(`INVALID: ${r.error}`); return 1; }
-      console.log(`SCHEMA OK: ${r.value.legalName} (${r.value.vat}). Binding not checked — run against a domain for that.`);
-      return 0;
-    } catch (e) { console.error(`INVALID: ${(e as Error).message}`); return 1; }
+    const raw = rest[++i];
+    if (!URL.canParse(raw) || new URL(raw).protocol !== "https:") { console.error(`verifier must be an https URL: ${show(raw)}`); return 2; }
+    trusted.push({ origin: new URL(raw).origin });
   }
 
-  const result = await validateDomain(target, { ...deps, trusted });
+  const result = await validateDomain(target, { ...deps, trusted: trusted.length ? trusted : DEFAULT_VERIFIERS });
   if (result.status === "no-profile") {
     console.log(`UNKNOWN: ${result.domain} publishes no business.json. This says nothing either way.`);
     return 3;
   }
   if (result.status === "not-bound") {
-    console.error(`NOT BOUND: ${result.domain}`);
-    for (const r of result.reasons) console.error(`  - ${r}`);
+    console.error(clean(`NOT BOUND: ${show(result.domain)}`));
+    for (const r of result.reasons) console.error(clean(`  - ${r}`));
     return 1;
   }
-  const { doc, record } = result;
-  console.log(`BOUND: ${result.domain} → ${doc.legalName} (${doc.vat})`);
-  console.log(`  verifier ${record.verifier} · ${record.authority.method} · ${record.authority.organizationIdentifier} · valid until ${record.expiresAt}`);
+  const { record } = result;
+  // Only attested values: the certificate's organizationName and the VAT. Never the
+  // document's self-declared legalName/tradingName (SPEC §5, rule 2).
+  console.log(clean(`BOUND: ${result.domain} is controlled by the holder of VAT ${record.vat} (${record.authority.organizationName}), per ${record.verifier}`));
+  console.log(clean(`  ${record.authority.method} · ${record.authority.organizationIdentifier} · valid until ${record.expiresAt}`));
   return 0;
+}
+
+async function checkFile(path: string): Promise<ExitCode> {
+  try {
+    const fh = await open(path, "r");
+    const buf = Buffer.alloc(MAX_DOCUMENT_BYTES + 1);
+    const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
+    await fh.close();
+    if (bytesRead > MAX_DOCUMENT_BYTES) { console.error(`INVALID: larger than ${MAX_DOCUMENT_BYTES} bytes`); return 1; }
+    const r = parseBusinessJson(JSON.parse(buf.subarray(0, bytesRead).toString("utf8")));
+    if (!r.ok) { console.error(clean(`INVALID: ${show(r.error)}`)); return 1; }
+    console.log("SCHEMA OK. This checks the file's shape only — it says nothing about who controls the business or the domain.");
+    return 4;
+  } catch (e) {
+    console.error(`INVALID: ${(e as Error).name === "SyntaxError" ? "not JSON" : (e as Error).message}`);
+    return 1;
+  }
 }
 
 /**

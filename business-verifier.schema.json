@@ -10,7 +10,8 @@
         },
         "verifier": {
           "type": "string",
-          "format": "uri"
+          "maxLength": 2048,
+          "pattern": "^https:\\/\\/[\\x21-\\x7e]+$"
         },
         "keys": {
           "minItems": 1,
@@ -21,7 +22,8 @@
               "kid": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 200
+                "maxLength": 200,
+                "pattern": "^[A-Za-z0-9._:-]+$"
               },
               "alg": {
                 "type": "string",
@@ -29,7 +31,7 @@
               },
               "x": {
                 "type": "string",
-                "pattern": "^[A-Za-z0-9_-]{43}$"
+                "pattern": "^[A-Za-z0-9_-]+$"
               },
               "notBefore": {
                 "type": "string",
@@ -52,7 +54,8 @@
         },
         "lookup": {
           "type": "string",
-          "format": "uri"
+          "maxLength": 2048,
+          "pattern": "^https:\\/\\/[\\x21-\\x7e]+$"
         }
       },
       "required": [

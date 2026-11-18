@@ -11,12 +11,14 @@
         "legalName": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 300
+          "maxLength": 300,
+          "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
         },
         "tradingName": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 300
+          "maxLength": 300,
+          "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
         },
         "vat": {
           "type": "string",
@@ -28,22 +30,26 @@
             "street": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 300
+              "maxLength": 300,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             },
             "postalCode": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 20
+              "maxLength": 20,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             },
             "locality": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 200
+              "maxLength": 200,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             },
             "region": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 200
+              "maxLength": 200,
+              "pattern": "^[^\\p{Cc}\\u202a-\\u202e\\u2066-\\u2069]+$"
             },
             "country": {
               "type": "string",
@@ -81,7 +87,8 @@
             },
             "url": {
               "type": "string",
-              "format": "uri"
+              "maxLength": 2048,
+              "pattern": "^https:\\/\\/[\\x21-\\x7e]+$"
             }
           },
           "required": [
@@ -94,22 +101,26 @@
           "properties": {
             "privacy": {
               "type": "string",
-              "format": "uri"
+              "maxLength": 2048,
+              "pattern": "^https:\\/\\/[\\x21-\\x7e]+$"
             },
             "terms": {
               "type": "string",
-              "format": "uri"
+              "maxLength": 2048,
+              "pattern": "^https:\\/\\/[\\x21-\\x7e]+$"
             },
             "legalNotice": {
               "type": "string",
-              "format": "uri"
+              "maxLength": 2048,
+              "pattern": "^https:\\/\\/[\\x21-\\x7e]+$"
             }
           },
           "additionalProperties": false
         },
         "binding": {
           "type": "string",
-          "format": "uri"
+          "maxLength": 2048,
+          "pattern": "^https:\\/\\/[\\x21-\\x7e]+$"
         }
       },
       "required": [
