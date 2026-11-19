@@ -27,7 +27,7 @@ Exit codes:
 - `3` no business.json (unknown)
 - `4` `check-file` passed the schema, which says nothing about binding
 
-You choose which verifiers you trust. The default is `https://verify.dekimu.com` with pinned keys. Until that verifier mints its key, the default binds nothing.
+You choose which verifiers you trust. The default is `https://verify.dekimu.com` with its key (`bj-2026-11`) pinned in the CLI, not fetched.
 
 ## Library
 

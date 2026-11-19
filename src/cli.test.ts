@@ -52,10 +52,10 @@ describe("cli", () => {
     expect(printed(err)).toMatch(/not a trusted verifier/);
   });
 
-  it("binds nothing through the default verifier until a key is pinned", async () => {
-    // Fail-closed by design: DEFAULT_VERIFIERS pins keys, and none exist yet. A document
-    // pointing at verify.dekimu.com must not bind through the CLI default.
-    expect(DEFAULT_VERIFIERS[0].keys).toEqual([]);
+  it("pins the verify.dekimu.com key and ignores any other key its host serves", async () => {
+    // Pinned, not fetched: a record signed by any other key must not bind through the CLI default,
+    // even when the host itself publishes that key.
+    expect(DEFAULT_VERIFIERS[0].keys).toEqual([{ kid: "bj-2026-11", alg: "ed25519", x: "xCPLg5cXpBrhYS2uRPmyWllDHanTrMjPtBKw8RpDM68", notBefore: "2026-11-20T00:00:00Z" }]);
     const doc = makeDoc({ binding: "https://verify.dekimu.com/b/ESB12345678/binding.json" });
     const v = makeVerifier("https://verify.dekimu.com");
     const record = v.sign(makeRecord(doc, { verifier: "https://verify.dekimu.com" }));
