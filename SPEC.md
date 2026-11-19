@@ -10,7 +10,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be read as in RF
 
 ## Abstract
 
-People, marketplaces and AI assistants keep asking the same question: is this site really the business it claims to be? `business.json` gives a machine-readable answer. A business publishes its identity at `/.well-known/business.json`. A **verifier** checks two things and signs a **binding record** that ties that identity to the domain:
+People, marketplaces and AI assistants need a way to check which legal entity controls a domain. `business.json` is a machine-readable format for that. A business publishes its identity at `/.well-known/business.json`. A **verifier** checks two things and signs a **binding record** that ties that identity to the domain:
 
 1. The holder of the business's VAT number signed a challenge with an EU qualified certificate, and the certificate names the business.
 2. The domain carries a DNS record naming the same VAT number.
@@ -128,6 +128,8 @@ The verifier serves the record at the document's `binding` URL. It conforms to [
 
 All times are RFC 3339 UTC with a `Z` suffix. Every base64url value MUST be the canonical encoding of its bytes: no padding, and spare bits zero.
 
+`level: "authority"` and the `authority` object name the kind of evidence, a qualified certificate whose subject is the legal person. They do not mean that any authority has endorsed the business.
+
 ### Verifier metadata
 
 A verifier publishes `https://<verifier>/.well-known/business-verifier.json` ([`business-verifier.schema.json`](business-verifier.schema.json)):
@@ -154,7 +156,7 @@ A verifier publishes `https://<verifier>/.well-known/business-verifier.json` ([`
    - the domain
    - the verifier
 
-   Never show the document's `legalName` or `tradingName` as part of the result. A consumer, including an AI assistant summarising a result, MUST phrase it as "the holder of VAT number X (organisation name Y) controls this domain, per verifier V". It MUST NOT present it as "safe", "scam-proof" or "guaranteed". It MUST present an unbound or missing result as "not verified", never as "fraudulent". Untrusted strings, such as reasons, MUST be escaped before display.
+   Never show the document's `legalName` or `tradingName` as part of the result. A consumer, including an AI assistant summarising a result, MUST phrase it as "the holder of VAT number X (organisation name Y) controls this domain, per verifier V". It MUST NOT present it as "safe", "scam-proof" or "guaranteed". It MUST present an unbound or missing result as "no current record" or "unknown", never as "fraudulent" and never as "verified". Untrusted strings, such as reasons, MUST be escaped before display.
 3. **Lookalikes.** A lookalike domain cannot borrow a binding. Its DNS proof would need the VAT holder's qualified signature over a challenge that lists that exact domain. Lookalike detection itself is out of scope for this specification.
 
 ## 6. Validation
@@ -191,7 +193,7 @@ A verifier MUST re-check DNS, and RDAP where available, at least every 24 hours 
 
 ## 7. Privacy
 
-v0.1 binds legal persons only, since the `authority` methods require an organisation identifier. Natural persons (sole traders) are out of scope until a profile exists that does not publish a home address. Verifiers SHOULD rate-limit lookups by VAT number.
+v0.1 binds legal persons only, since the `authority` methods require an organisation identifier. Natural persons (sole traders) are out of scope until a profile exists that does not publish a home address. A representative's certificate also carries the signer's own name and national ID. A verifier SHOULD keep only what it needs to re-check the binding (certificate hash, serial number, revocation responder and key) and MUST NOT publish the signer's personal data in a record. Verifiers SHOULD rate-limit lookups by VAT number.
 
 ## 8. Security considerations
 

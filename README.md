@@ -1,10 +1,10 @@
 # business-json
 
-A verifiable answer to "is this site really business X?"
+An open format for publishing a business's legal identity at a domain, with a record anyone can check showing that the holder of a qualified certificate for that business controls the domain.
 
 A business publishes its identity at `/.well-known/business.json`. A verifier signs a **binding record** that ties it to the domain. The binding needs two proofs:
 
-- the VAT holder's signature with an EU qualified certificate (QSeal, or a legal representative's QES)
+- the VAT holder's signature with an EU qualified certificate (a qualified electronic seal, or a representative's personal qualified certificate on the verifier's allowlist)
 - a DNS record at `_business-json.<domain>`
 
 The file alone proves nothing. A lookalike domain can't borrow a binding, and a domain with no file is *unknown*, not suspicious.
