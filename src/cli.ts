@@ -9,11 +9,13 @@ import { MAX_DOCUMENT_BYTES, show, validateDomain, type TrustedVerifier, type Va
 /**
  * Verifier keys the CLI pins when no `--verifier` is given (SPEC §5, rule 1).
  * Pinned, not fetched: trusting whatever key a web host serves would make a
- * hosting compromise a forgery of every binding. EMPTY until verify.dekimu.com
- * mints its business-json key — until then the default binds nothing (fail
- * closed), and `npm run check:pinned-default` blocks a publish.
+ * hosting compromise a forgery of every binding. This is verify.dekimu.com's
+ * `bj-2026-11` key as published at /.well-known/business-verifier.json on
+ * 2026-11-20. A rotation ships as a new release that appends the new key.
  */
-export const DEFAULT_VERIFIER_KEYS: readonly VerifierKey[] = [];
+export const DEFAULT_VERIFIER_KEYS: readonly VerifierKey[] = [
+  { kid: "bj-2026-11", alg: "ed25519", x: "xCPLg5cXpBrhYS2uRPmyWllDHanTrMjPtBKw8RpDM68", notBefore: "2026-11-20T00:00:00Z" },
+];
 export const DEFAULT_VERIFIERS: readonly TrustedVerifier[] = [
   { origin: "https://verify.dekimu.com", keys: [...DEFAULT_VERIFIER_KEYS] },
 ];
