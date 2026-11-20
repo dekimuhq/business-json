@@ -208,6 +208,10 @@ v0.1 binds legal persons only, since the `authority` methods require an organisa
 - **Former representatives.** A binding lives no longer than the certificate behind it, and revocation is re-checked daily.
 - **Server-side validators** take attacker-chosen domains. Besides step 1, they MUST block private and link-local address ranges at the network egress, because a valid hostname can still resolve to one.
 
+## Related work
+
+GLEIF's verifiable LEI (vLEI, ISO 17442-3) is a related but different approach: it binds a legal entity, identified by its LEI, to people and roles through a credential chain rooted at GLEIF, and its credentials do not themselves bind a domain or a VAT number; this specification does not depend on it and claims no equivalence to it.
+
 ## Reference implementation
 
 ```
